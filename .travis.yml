@@ -1,8 +1,14 @@
 dist: trusty
 sudo: required
 language: bash
+env:
+  HADOLINT: "${HOME}/hadolint"
 before_install:
 - curl https://raw.githubusercontent.com/express42/otus-homeworks/2019-08/run.sh | bash
+install:
+  - curl -sL -o ${HADOLINT} "https://github.com/hadolint/hadolint/releases/download/v1.16.0/hadolint-$(uname -s)-$(uname -m)" && chmod 700 ${HADOLINT}
+script:
+  - git ls-files --exclude='Dockerfile*' --ignored | xargs --max-lines=1 ${HADOLINT}
 notifications:
   slack:
     rooms:
