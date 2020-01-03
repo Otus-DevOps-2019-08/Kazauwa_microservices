@@ -5,7 +5,7 @@ RUN apt-get update -qq && \
                                                build-essential=12.1ubuntu2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    gem install bundler --no-ri --no-rdoc
+    gem install bundler:2.1.3 --no-ri --no-rdoc
 
 ENV APP_HOME /app
 RUN mkdir $APP_HOME
