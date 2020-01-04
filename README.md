@@ -1,44 +1,17 @@
 # Kazauwa_microservices
 
-## Приложение reddit
+## Docker
 
-### Установка
+### Драйверы сети
 
-Создать образ для каждого из микросервисов:
+Существует три вида: `none`, `host` и `bridge`
 
-```bash
-# docker build -f src/post-py/Dockerfile -t reddit/post:latest src/post-py
-# docker build -f src/comment/Dockerfile -t reddit/comment:latest src/comment
-# docker build -f src/ui/Dockerfile -t reddit/ui:latest src/ui
-```
+Контейнер с сетевым драйвером `none` имеет доступ только к локальной сети и не сможет взаимодействовать с другими контейнерами и хостом.
 
-Скачать образ базы данных:
+Контейнер с сетевым драйвером `host` фактически убирает сетевую изоляцию между хостом и контейнером. Все действия с сетью, происходящие в контейнере, будут видны и на хосте. Например, если попробовать поднять несколько контейнеров `nginx` с драйвером `host`, то упадут все кроме одного: порт 80 уже будет занят "выжившим контейнером".
 
-```bash
-# docker pull mongo:latest
-```
+Сетевой драйвер `bridge` наиболее распространён и является драйвером по умолчанию. Этот драйвер предоставляет изоляцию от хоста и других контейнеров, но позволяет взаимодействовать контейнерам внутри одной сети.
 
-Создать сеть, через которую контейнеры будут общаться:
+### Compose
 
-```bash
-# docker network create reddit
-```
-
-Опционально, можно создать персистентный вольюм для базы данных, чтобы данные не пропадали между перезапусками контейнеров:
-
-```bash
-# docker volume create reddit_db
-```
-
-### Запуск
-
-Выполнить следующие команды:
-
-```bash
-# docker run -d --network=reddit --network-alias=post_db --network-alias=comment_db -v reddit_db:/data/db mongo:latest
-# docker run -d --network=reddit --network-alias=post reddit/post:latest
-# docker run -d --network=reddit --network-alias=comment reddit/comment:latest
-# docker run -d --network=reddit -p 9292:9292 reddit/ui:latest
-```
-
-И перейти по адресу `http://127.0.0.1:9292`
+CLI-утилита, которая позволяет объединять несколько контейнеров в одной сети при помощи файла конфигурации. Пример такой конфигурации можно посмотреть в `src/docker-compose.yml`. По умолчанию, контейнеры объединяются в проект, названием которого является название рабочей директории. Его можно изменить, передав на вход параметр `-p <название проекта>`

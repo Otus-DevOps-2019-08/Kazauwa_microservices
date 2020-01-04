@@ -18,4 +18,4 @@ COPY . $APP_HOME
 ENV COMMENT_DATABASE_HOST comment_db
 ENV COMMENT_DATABASE comments
 
-CMD ["puma"]
+ENTRYPOINT ["puma"]
