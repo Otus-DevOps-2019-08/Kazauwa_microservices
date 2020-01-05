@@ -3,70 +3,55 @@
 ## Table of contents
 
 1. [Docker](https://github.com/Otus-DevOps-2019-08/Kazauwa_microservices/tree/master/wiki/docker.md)
+2. [Gitlab](https://github.com/Otus-DevOps-2019-08/Kazauwa_microservices/tree/master/wiki/gitlab.md)
 
-## Gitlab
+## Prometheus
 
 ### Установка
 
-Gitlab позволяет развернуть собственный инстанс приложения. Это можно сделать, например, с помощью докера:
+Самый простой способ запуска — докер:
 
 ```bash
-# mkdir -p /srv/gitlab/config /srv/gitlab/data /srv/gitlab/logs
-# docker-compose -f gitlab-ci/docker-compose.yml up -d
+# docker run --rm -p 9090:9090 -d --name prometheus prom/prometheus:v2.1.0
 ```
 
-Приложение поднимается несколько минут, проследить за процессом можно следующим образом:
+Веб-интерфейс будет доступен по адресу http:127.0.0.1:9090, однако пока что в нём нет ничего особо интересного. Прометей умеет мониторить сам себя, эти метрики идут из коробки и доступны всегда. Гораздо интереснее понаблюдать за рабочими приложениями, но для этого нужна дополнительная конфигурация.
 
-```bash
-# docker logs -f gitlab
+### Конфигурация
+
+Прометей настраивается при помощи флагов командной строки и/или конфигурационного файла. Для удобства, воспользуемся последним — `monitoring/prometheus/prometheus.yml`. В самом простом виде конфигурация выглядит так:
+
+```yaml
+---
+global:
+  scrape_interval: '5s'
+
+scrape_configs:
+  - job_name: 'myjob'
+    static_configs:
+      - targets:
+        - '127.0.0.1:9090'
 ```
 
-### CI/CD
+Разберём каждый параметр подробнее:
 
-Для корректной работы CI/CD пайплайнов необходимо описать сами пайплайны и завести раннера, который будет их выполнять.
+- `scrape_interval` — как часто прометей должен собирать метрики
+- `job_name` — название джобы (читай, группы сервисов)
+- `targets` — адреса для сбора метрик (указание порта обязательно)
 
-Начнём с раннера. Предположим, что нужный репозиторий уже создан. В панели слева нужно перейти в Settings > CI/CD > Runners settings и скопировать оттуда токен, он понадобится для регистрации раннера. Сам раннер можно установить либо через докер, либо через пакетный менеджер:
+Передать этот конфиг контейнеру с прометеем можно двумя способами: примонтировать в базовый образ или написать свой. Пример своего образа можно посмотреть в `monitoring/prometheus/Dockerfile`.
 
-```bash
-# docker
-docker run -d --name gitlab-runner --restart always \
-           -v /srv/gitlab-runner/config:/etc/gitlab-runner \
-           -v /var/run/docker.sock:/var/run/docker.sock \
-           gitlab/gitlab-runner:latest
+### Запуск
 
-# пакетный менеджер (apt, yum, dnf и т.п.)
-apt install gitlab-runner
-```
+См. README в директории `src/`. TL;DR — заполнить `.env` и выполнить `docker-compose up -d`. Готовые образы можно найти на [докерхабе автора](https://hub.docker.com/u/kazauwa/).
 
-Регистрация раннера:
+### Что можно мониторить
 
-```bash
-docker exec -it gitlab-runner gitlab-runner register --run-untagged --locked=false
-Please enter the gitlab-ci coordinator URL (e.g. https://gitlab.com/):
-http://<IP>/
-Please enter the gitlab-ci token for this runner:
-<TOKEN>
-Please enter the gitlab-ci description for this runner:
-[38689f5588fe]: my-runner
-Please enter the gitlab-ci tags for this runner (comma separated):
-linux,xenial,ubuntu,
-Please enter the executor:
-docker
-Please enter the default Docker image (e.g. ruby:2.1):
-alpine:latest
-Runner registered successfully.
-```
+Да что угодно. Для прометея написано много экспортеров, которые умеют собирать и отдавать метрики для самых разных целей, в том числе и для приложений, исходный код которых нельзя поменять. Несколько примеров:
 
-Пример описания пайплайна можно посмотреть в файле `.gitlab-ci.yml`. Его необходимо закоммитить в корень репозитория.
+- Node exporter — собирает метрики с хостовой машины: нагрузку по ЦПУ, оперативную память, файловую систему и т.п.
+- Blackbox exporter — позволяет проверять доступность сервисов с целевого хоста
+- Postgres exporter — собирает метрики инстанса PostgreSQL
+- Docker exporter — такого на самом деле нет, но докер умеет из коробки отдавать свои метрики в формате прометея
 
-### Окружения
-
-Гитлаб позволяет отнести отдельные джобы пайплайна к разным окружениям, например на staging и production. Сделать это очень просто — достаточно добавить в джобу в `gitlab-ci.yml` такой блок:
-
-```yml
-environment:
-  name: production
-  url: http://example.com
-```
-
-Гитлаб автоматически создаст окружение, после того как джоба с окружением выполнится в первый раз.
+При разработке собственных приложений, можно воспользоваться [библиотеками](https://prometheus.io/docs/instrumenting/clientlibs/), которые реализуют клиент прометея.
