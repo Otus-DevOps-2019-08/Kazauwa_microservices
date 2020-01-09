@@ -1,56 +1,44 @@
 # Kazauwa_microservices
 
-## Docker
+## Приложение reddit
 
-### Как использовать
+### Установка
 
-Для создания монолитного образа с приложением reddit и mongodb, в корне этого репозитория необходимо выполнить такую команду:
-
-```bash
-$ docker build -t reddit:latest ./docker-monolith
-```
-
-Докер последовательно выполнит все инструкции описанные в Dockerfile и создаст образ с тегом `reddit:latest`. Для запуска контейнера из этого образа:
+Создать образ для каждого из микросервисов:
 
 ```bash
-$ docker run --rm -d --name reddit --network=host reddit:latest
+# docker build -f src/post-py/Dockerfile -t reddit/post:latest src/post-py
+# docker build -f src/comment/Dockerfile -t reddit/comment:latest src/comment
+# docker build -f src/ui/Dockerfile -t reddit/ui:latest src/ui
 ```
 
-Результат можно посмотреть, перейдя по `http://127.0.0.1:9292`.
-
-**Важно!**
-Опцию `--network=host` обычно не рекомендуется использовать, так как нарушается сетевая изоляция между докером и хостовой машиной. В данном примере эта опция нужна, чтобы не переусложнять вводное задание.
-
-Теперь, можно "залезть" внутрь контейнера и посмотреть на его файловую систему:
+Скачать образ базы данных:
 
 ```bash
-$ docker exec -ti reddit /bin/bash
+# docker pull mongo:latest
 ```
 
-Например, посмотреть на логи mongodb: `less /var/log/mongod.log`.
-
-
-### Docker Machine
-Этот инструмент позволяет локально управлять удалённым хостом. Для примера, можно создать инстанс в GCP, установить на нём докер и управлять им со своей локальной машины:
+Создать сеть, через которую контейнеры будут общаться:
 
 ```bash
-$ docker-machine create --driver google \
-                        --google-machine-image https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts \
-                        --google-machine-type n1-standard-1 \
-                        --google-zone europe-west2-c \
-                        docker-host
+# docker network create reddit
 ```
 
-Для активации этой машины:
+Опционально, можно создать персистентный вольюм для базы данных, чтобы данные не пропадали между перезапусками контейнеров:
 
 ```bash
-$ eval $(docker env docker-host)
+# docker volume create reddit_db
 ```
 
-Теперь, команда `docker` управляет хостом в GCP. Для проверки, можно выполнить команду `docker images` и убедиться, что список будет пустым. Несмотря на удалённость, мы всё равно можем собирать образы из локальных файлов: `docker-machine` отправит весь необходимый контекст по сети.
+### Запуск
 
-Для переключения на локальный докер:
+Выполнить следующие команды:
 
 ```bash
-$ eval $(docker env --unset)
+# docker run -d --network=reddit --network-alias=post_db --network-alias=comment_db -v reddit_db:/data/db mongo:latest
+# docker run -d --network=reddit --network-alias=post reddit/post:latest
+# docker run -d --network=reddit --network-alias=comment reddit/comment:latest
+# docker run -d --network=reddit -p 9292:9292 reddit/ui:latest
 ```
+
+И перейти по адресу `http://127.0.0.1:9292`
